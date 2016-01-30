@@ -1,8 +1,34 @@
 <!--#include file="fpdf/includes/Basics.asp"-->
 <script language="jscript" runat="server">
+/****************************************************************************
+*                                                                           *
+* Software				: 	FPDF for Asp                                    *
+* Version				: 	1.01 beta                                       *
+* Date					: 	2003/11/15                                      *
+* Author				:   Lorenzo Abbati	                                *
+* License				:  	Freeware                                        *
+* Site					:	http://www.aspxnet.it	                        *
+*                                                                           *
+*****************************************************************************
+*                                                                           *
+* Author (PHP Class)    :	Olivier Plathey                                 *
+* Site (PHP Class) 		:	http://www.fpdf.org   	                        *
+*                                                                           *
+*****************************************************************************
+*                                                                           *
+* You may use and modify this software as you wish.                         *
+*                                                                           *
+*****************************************************************************
+* Mods: Tim Galloway 29/1/2016                                              *
+*       Added tables with multicell                                         *
+*                                                                           *
+*                                                                           *
+*                                                                           *
+****************************************************************************/
+
 function FPDF()
 	{
-	this.Version = "1.01 beta"
+	this.Version = "1.02 beta"
 	var PATH;
 	var lib=new clib()
 	var page;
@@ -64,6 +90,122 @@ function FPDF()
 	var creator;
 	var AliasNbPages;
 
+	// Tim Galloway 29/1/2016
+	// Table with Multicell
+	
+	var widths;
+	var aligns;
+	this.SetWidths=function SetWidths(value)
+	{
+		this.widths = value.split(",");
+	}
+	
+	this.SetAligns=function SetAligns(value)
+	{
+		this.aligns = value.split(",");
+	}
+	
+	this.SetFontStyle=function SetFontStyle(xstyle)
+	{
+		if(this.FontStyle==xstyle)return;
+		this.FontStyle=xstyle;
+	}
+	
+	this.Row=function Row(row, header)
+	{
+		var retValue;
+		retValue = "";
+		var nb;
+		nb = 0;
+		var prev_nb;
+		prev_nb = 0;
+		var h;
+		
+		// Calculate height of row
+		var row_array = row.split(",");
+		var row_length = row_array.length;
+		for (var i=0;i < row_length;i++){			
+			nb = this.NbLines(this.widths[i], row_array[i]);
+			if (nb > prev_nb){
+				prev_nb = nb;
+			}
+		}
+		h=5*prev_nb;
+
+		//Issue a page break if needed
+		this.CheckPageBreak(h);
+		
+		retValue = retValue + "header='"+ header + "'<br>";
+			
+			// Is this row the table header
+			if (header == true){
+				// make the text bold
+				//this.SetFontStyle('B');
+				this.SetFont("Arial","B",8);
+			}else{
+				// make it non bold
+				//this.SetFontStyle('U');
+				this.SetFont("Arial","",8);
+			}
+
+		//Set this.x = 1 so table starts at left hand side of page
+		this.SetX(1);
+		//Draw the cells of the row
+		for (var i=0;i < row_array.length;i++){
+			w = Number(this.widths[i]);
+			if (typeof this.aligns[i] != 'undefined'){
+				//aligned has been set
+				a = this.aligns[i];
+			}
+			else{
+				//aligned not set 
+				a = 'L';
+			}
+			
+			// Save the current position
+			x=this.GetX();
+			y=this.GetY();
+			
+			//Draw the border
+			this.Rect(x , y , w , h);
+			
+			//Print the text
+			this.MultiCell(w,5,row_array[i],0,a);
+			
+			//Put the position to the right of the cell
+			this.SetXY(x+w,y);
+		}
+		this.Ln(h);
+		return retValue;
+
+	}
+	
+	this.NbLines=function NbLines(w, txt)
+	{
+	// NEED TO FINISH THIS ONE
+		return 2;
+	}
+	
+	this.CheckPageBreak=function CheckPageBreak(h)
+	{
+		//If the height h would cause an overflow, add a new page immediately
+		if ((this.y + h) > this.PageBreakTrigger){
+			this.AddPage(this.CurOrientation);
+		}
+	}
+	// end of table with multicell
+	//
+	//
+	
+	
+	// Inicio Modificacao (Murch) 20:45 18/01/2007
+	// variavel para novo metodo SetRelativeTempPath
+	//
+		var RelativeTempPath;				
+	//
+	// FIM Modificacao (Murch)	
+	
+	
 	this.Interlinea=0;
 
 	this.SetPath=function SetPath(value){
@@ -126,6 +268,10 @@ function FPDF()
 		this.CoreFonts["timesBI"]="Times-BoldItalic";
 		this.CoreFonts["symbol"]="Symbol";
 		this.CoreFonts["zapfdingbats"]="ZapfDingbats";
+		
+		this.RelativeTempPath="";
+		
+		
 		if(xunit=="pt")this.k=1;
 		else if(xunit=="mm")this.k=72/25.4;
 		else if(xunit=="cm")this.k=72/2.54;
@@ -223,6 +369,19 @@ function FPDF()
 	this.SetAuthor=function SetAuthor(xauthor){this.author=xauthor;}
 	this.SetKeywords=function SetKeywords(xkeywords){this.keywords=xkeywords;}
 	this.SetCreator=function SetCreator(xcreator){this.creator=xcreator;}
+	
+	// Inicio Modificacao (Murch) 20:45 18/01/2007
+	// criei um novo metodo para setar o diretorio temporario.
+	// Caso nao seja chamada, (variavel em branco) o sistema usara o antigo padrao
+	//
+		this.SetRelativeTempPath=function SetRelativeTempPath(xRelativeTempPath)
+		{
+			this.RelativeTempPath=xRelativeTempPath;
+		}			
+	//
+	// FIM Modificacao (Murch)
+	
+		
 	this.Error=function Error(xmsg)
 		{
 		Response.Write("<B>FPDF error: </B>" + xmsg);
@@ -835,7 +994,7 @@ this.SetFont=function SetFont(xfamily , xstyle , xsize)
 		 this.SetY(xy);
 		 this.SetX(xx);
 		}
-	this.Output=function Output(xfile , xdownload , Overwrite)
+	this.Output=function Output(xfilepath, xfile , xdownload , Overwrite)
 		{
 		if (arguments.length<3) {
 		Overwrite=true;
@@ -846,41 +1005,75 @@ this.SetFont=function SetFont(xfamily , xstyle , xsize)
 		}
 		;
 		if(this.state<3)this.Close();
-		if(xfile!=""){ // <<< alteração aqui 
-			if(xdownload){
-						Response.ContentType = "application/octet-stream";
-						Response.AddHeader("Content-disposition", "attachment; filename=" + xfile);
-					}
-					else
-					{
-						Response.ContentType = "application/pdf"
-						Response.AddHeader("Content-Disposition","inline");
-					}
-			if (!this.hasBinary){
-				Response.Write(this.buffer)}
-			else{
-				xfile=Server.MapPath(lib.fso.GetTempName())
-				xf=lib.fopen(xfile,"wb");
-				if(xf.number)this.Error("Unable to create output file: " + xfile);
-				lib.fwrite(xf,this.buffer);
-				lib.fclose(xf);
-				outB = Server.CreateObject("ADODB.Stream")
-				outB.Type = 1
-				outB.Open()
-				outB.LoadFromFile (xfile)
-				Response.BinaryWrite(outB.Read())
-				outB.Close()
-				lib.fso.DeleteFile(xfile);
-				}
+		
+		//if(xfile==""){
+		
+		
+		if(xfile=="")
+		{
+			xfile = "Impressao.PDF"
 		}
-			else
+		
+		//if(xdownload){
+		//			Response.ContentType = "application/octet-stream";
+		//			Response.AddHeader("Content-disposition", "attachment; filename=" + xfile);
+				//}
+				//else
+				//{
+					//Response.ContentType = "application/pdf"
+					//Response.AddHeader("Content-Disposition","inline");
+		//		}
+		//if (!this.hasBinary){
+		//	Response.Write(this.buffer)}
+		//else{
 
-				{
-				xf=lib.fopen(xfile,"wb");
-				if(xf.number)this.Error("Unable to create output file: " + xfile);
-				lib.fwrite(xf,this.buffer);
-				lib.fclose(xf);
-				}
+				
+			// Inicio Modificacao (Murch) 20:40 18/01/2007
+			// comentei a linha abaixo, para setar o diretorio onde sera criado o arquivo temporario necessario
+			//
+			//xfile=Server.MapPath(lib.fso.GetTempName())
+			//	
+				
+			//if (this.RelativeTempPath == '')
+			//{
+			//	xfile=Server.MapPath(lib.fso.GetTempName())
+			//}
+			//else
+			//{
+			//	xfile=Server.MapPath(this.RelativeTempPath + "/" + lib.fso.GetTempName())
+			//}
+				
+			//
+			// FIM Modificacao (Murch)
+								
+			xf=lib.fopen(xfilepath,"wb");
+			if(xf.number)this.Error("Unable to create output file: " + xfilepath);
+			lib.fwrite(xf,this.buffer);
+			lib.fclose(xf);
+			//outB = Server.CreateObject("ADODB.Stream")
+			//outB.Type = 1
+			//outB.Open()
+			//outB.LoadFromFile (xfilepath)
+			//Response.BinaryWrite(outB.Read())
+			
+			if(xdownload){
+					Response.ContentType = "application/octet-stream";
+					Response.AddHeader("Content-disposition", "attachment; filename=" + xfile);
+					Response.Write(this.buffer)
+			}
+
+			//outB.Close()
+			//lib.fso.DeleteFile(xfile);
+		//	}
+		//}
+		//	else
+		//
+		//		{
+		//		xf=lib.fopen(xfile,"wb");
+		//		if(xf.number)this.Error("Unable to create output file: " + xfile);
+		//		lib.fwrite(xf,this.buffer);
+		//		lib.fclose(xf);
+		//		}
 		}
 
 	this.clearBuffer=function clearBuffer(){this.buffer='';}
@@ -1315,3 +1508,4 @@ this.SetFont=function SetFont(xfamily , xstyle , xsize)
 }
 
 </script>
+
