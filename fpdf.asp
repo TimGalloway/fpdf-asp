@@ -97,6 +97,11 @@ function FPDF()
 	var aligns;
 	this.SetWidths=function SetWidths(value)
 	{
+		// Maybe pass the widths in with '#' as one of the string elements
+		// This can be interperated as the rest of the width of the page after the other widths have been set
+		// Would only be able to have 1 # in the string
+		// Maybe this.xformat array has the page dimensions, need to also get the margins that have been set and factor those in aswell
+
 		this.widths = value.split(",");
 	}
 	
